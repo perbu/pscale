@@ -8,6 +8,17 @@ pgx.
 
 The project tries to draw a simple histogram of the throughput.
 
+## Configuration
+
+The program requires a `DATABASE_URL` environment variable containing the PostgreSQL connection string.
+
+If a `.env` file exists in the current directory, it will be loaded automatically. If the file doesn't exist, the program continues without error. Environment variables already set in the shell take precedence.
+
+Example `.env` file:
+```
+DATABASE_URL=postgres://user:password@localhost:5432/dbname
+```
+
 ## Dependencies
 
 We try to keep the dependencies to a minimum, mostly using stdlib and the pgx driver. This includes any tests written.
