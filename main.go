@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 	"github.com/pressly/goose/v3"
 )
 
@@ -30,6 +31,9 @@ type Result struct {
 
 func main() {
 	ctx := context.Background()
+
+	// Load .env file if it exists (not fatal if missing)
+	_ = godotenv.Load()
 
 	// Get database connection string from environment
 	connString := os.Getenv("DATABASE_URL")
