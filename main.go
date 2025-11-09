@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib" // Import pgx stdlib driver for goose
 	"github.com/joho/godotenv"
 	"github.com/pressly/goose/v3"
 )
@@ -90,7 +91,7 @@ func main() {
 func runMigrations(connString string) error {
 	goose.SetBaseFS(embedMigrations)
 
-	db, err := goose.OpenDBWithDriver("postgres", connString)
+	db, err := goose.OpenDBWithDriver("pgx", connString)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
@@ -119,28 +120,34 @@ func clearTable(ctx context.Context, pool *pgxpool.Pool) error {
 func insertWithBatch(ctx context.Context, pool *pgxpool.Pool, data []string, batchSize int) (time.Duration, error) {
 	start := time.Now()
 
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback(ctx)
-
-	batch := &pgx.Batch{}
-	for i, row := range data {
-		batch.Queue("INSERT INTO test_data (data) VALUES ($1)", row)
-
-		// Execute batch when we reach batchSize or end of data
-		if (i+1)%batchSize == 0 || i == len(data)-1 {
-			br := tx.SendBatch(ctx, batch)
-			if err := br.Close(); err != nil {
-				return 0, err
-			}
-			batch = &pgx.Batch{}
+	// Process data in transactions of batchSize rows each
+	for i := 0; i < len(data); i += batchSize {
+		end := i + batchSize
+		if end > len(data) {
+			end = len(data)
 		}
-	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return 0, err
+		// Create a new transaction for this batch
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			return 0, err
+		}
+
+		// Use pgx.Batch for efficient pipelining within the transaction
+		batch := &pgx.Batch{}
+		for _, row := range data[i:end] {
+			batch.Queue("INSERT INTO test_data (data) VALUES ($1)", row)
+		}
+
+		br := tx.SendBatch(ctx, batch)
+		if err := br.Close(); err != nil {
+			tx.Rollback(ctx)
+			return 0, err
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			return 0, err
+		}
 	}
 
 	return time.Since(start), nil
