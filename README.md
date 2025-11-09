@@ -7,3 +7,9 @@ The projects uses Goose to manage the embedded migrations. The only configuratio
 pgx.
 
 The project tries to draw a simple histogram of the throughput.
+
+## Dependencies
+
+We try to keep the dependencies to a minimum, mostly using stdlib and the pgx driver. This includes any tests written.
+
+
